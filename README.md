@@ -20,21 +20,31 @@ data scheme.
    ```
    setx MAPTILER_KEY "your-key-here"
    ```
-2. **Fuel price data**: the CSV comes from the
-   [Fuel Finder developer portal](https://www.developer.fuel-finder.service.gov.uk/access-latest-fuelprices),
-   gated behind a free GOV.UK One Login. Either:
-   - Download the CSV by hand and drop it in your Downloads folder (the
-     script auto-finds the newest `UpdatedFuelPrice-*.csv` there), or
-   - Copy the pre-signed S3 URL shown on the download page and pass it
-     with `--csv-url` - fetched directly, no file needed. That link is
-     only valid for ~12 hours and one specific publish, so it has to be a
-     fresh one each time, not a saved one.
+2. **Fuel price data** - two options:
+   - **API (recommended, fully automated)**: register once at the
+     [Fuel Finder developer portal](https://www.developer.fuel-finder.service.gov.uk/access-latest-fuelprices)
+     (free, behind a GOV.UK One Login - a one-time step) to get a
+     `client_id`/`client_secret` pair, then set:
+     ```
+     setx FUEL_FINDER_CLIENT_ID "your-client-id"
+     setx FUEL_FINDER_CLIENT_SECRET "your-client-secret"
+     ```
+     Once set, every run fetches live data with no further login or manual
+     step - see `fuel_finder_api.py` for exactly which endpoints this uses
+     (the API's own example docs show a domain that doesn't actually
+     resolve, so these were found by hand via the portal's Swagger pages).
+   - **CSV (manual fallback)**: download the CSV by hand from the same
+     portal and drop it in your Downloads folder (auto-detected), or copy
+     the pre-signed S3 URL shown on the download page and pass it with
+     `--csv-url` - that link is only valid for ~12 hours and one specific
+     publish, so it has to be a fresh one each time.
 
 ## Usage
 
 ```
-python generate_fuel_map.py                    # auto-finds newest CSV in Downloads
-python generate_fuel_map.py --csv path\to.csv   # or point at one directly
+python generate_fuel_map.py                    # uses the API if credentials are set,
+                                                 # else falls back to newest CSV in Downloads
+python generate_fuel_map.py --csv path\to.csv   # force a specific CSV
 python generate_fuel_map.py --csv-url "https://...&X-Amz-Signature=..."
 ```
 

@@ -2,19 +2,24 @@
 generate_fuel_map.py
 
 Builds a self-contained HTML map of UK fuel prices from the official
-government Fuel Finder CSV export (gov.uk/guidance/access-the-latest-
-fuel-prices-and-forecourt-data-via-api-or-email - free CSV download,
-refreshed twice daily, no API/OAuth registration needed for this route).
+government Fuel Finder open data scheme.
 
-The CSV lives in an S3 bucket behind a pre-signed URL you copy from the
-developer portal (developer.fuel-finder.service.gov.uk, behind your
-GOV.UK One Login) - the signed URL itself needs no login/cookies once
-you have it (confirmed: works from a plain script request), but it's
-only valid for ~12 hours and points at that specific publish (the
-filename changes every time a new one's published), so there's no
-single permanent link. Grab a fresh one from the portal each time and
-pass it with --csv-url, or keep using a manually-downloaded file with
---csv / the Downloads auto-detect.
+Two data sources, in priority order:
+
+  1. The Fuel Finder API (fuel_finder_api.py) - fully automated, no
+     browser or manual step needed. Used automatically whenever
+     FUEL_FINDER_CLIENT_ID and FUEL_FINDER_CLIENT_SECRET are set (get
+     them once from developer.fuel-finder.service.gov.uk, behind a
+     GOV.UK One Login - a one-time registration, not a recurring one).
+     The API's real base URL/endpoints aren't the ones shown in its own
+     example docs (which don't resolve) - see fuel_finder_api.py for
+     what was actually confirmed working.
+  2. The CSV export - a manual fallback if API credentials aren't set,
+     or forced with --csv/--csv-url. The CSV lives in an S3 bucket
+     behind a pre-signed URL you copy from the developer portal - the
+     signed URL itself needs no login/cookies once you have it, but
+     it's only valid for ~12 hours and points at one specific publish,
+     so there's no single permanent link like the API's credentials are.
 
 Real-world data quirks handled here:
   - brand_name casing is inconsistent across retailers (ESSO/Esso/esso,
@@ -30,13 +35,15 @@ Real-world data quirks handled here:
     left out rather than shown as zero.
 
 Usage:
-    python generate_fuel_map.py                  # auto-finds the newest
-                                                   # UpdatedFuelPrice-*.csv
-                                                   # in Downloads
-    python generate_fuel_map.py --csv path\to.csv # or point at one directly
+    python generate_fuel_map.py                   # uses the API if
+                                                    # FUEL_FINDER_CLIENT_ID/
+                                                    # SECRET are set, else
+                                                    # falls back to the
+                                                    # newest CSV in Downloads
+    python generate_fuel_map.py --csv path\to.csv  # force a specific CSV
     python generate_fuel_map.py --csv-url "https://...s3...&X-Amz-Signature=..."
-                                                   # or fetch a fresh pre-signed
-                                                   # link straight from the portal
+                                                    # force a fresh pre-signed
+                                                    # CSV link
 """
 
 import argparse
@@ -506,13 +513,12 @@ def generate_html(stations, source_file, maptiler_key):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--csv", help="Path to the Fuel Finder CSV export. Defaults to the newest "
-                                       "UpdatedFuelPrice-*.csv found in your Downloads folder.")
+    parser.add_argument("--csv", help="Path to the Fuel Finder CSV export. Forces the CSV route "
+                                       "instead of the API even if API credentials are set.")
     parser.add_argument("--csv-url", help="A fresh pre-signed S3 URL copied from the Fuel Finder "
                                            "developer portal's download page - fetched directly, no "
-                                           "file download needed. Takes priority over --csv. Only "
-                                           "valid for ~12 hours and one specific publish, so this "
-                                           "needs to be a fresh link each time, not a saved one.")
+                                           "file download needed. Only valid for ~12 hours and one "
+                                           "specific publish. Forces the CSV route.")
     parser.add_argument("--maptiler-key", help="MapTiler API key (free, from "
                                                 "cloud.maptiler.com/account/keys). Defaults to the "
                                                 "MAPTILER_KEY environment variable - kept out of this "
@@ -525,7 +531,21 @@ def main():
               "then either set the MAPTILER_KEY environment variable or pass --maptiler-key <key>.")
         return
 
-    if args.csv_url:
+    client_id = os.environ.get("FUEL_FINDER_CLIENT_ID")
+    client_secret = os.environ.get("FUEL_FINDER_CLIENT_SECRET")
+    use_api = bool(client_id and client_secret) and not (args.csv or args.csv_url)
+
+    if use_api:
+        import fuel_finder_api
+        print("Fetching live data from the Fuel Finder API...")
+        try:
+            stations, skipped_closed = fuel_finder_api.fetch_stations(client_id, client_secret, progress=print)
+        except Exception as e:
+            print(f"API fetch failed: {e}\nFalling back to CSV - grab one from the developer portal "
+                  "and pass --csv <path> or --csv-url <link>, or drop a file in your Downloads folder.")
+            return
+        source_label = f"Fuel Finder API ({datetime.now().strftime('%d %b %Y, %H:%M')})"
+    elif args.csv_url:
         print("Fetching CSV from the provided URL...")
         try:
             csv_text = fetch_csv_text(args.csv_url)
@@ -536,18 +556,19 @@ def main():
             return
         csv_file = io.StringIO(csv_text)
         source_label = f"live fetch ({datetime.now().strftime('%d %b %Y, %H:%M')})"
+        stations, skipped_closed = load_stations(csv_file)
     else:
         csv_path = args.csv or find_latest_csv()
         if not csv_path or not os.path.exists(csv_path):
-            print("Couldn't find a Fuel Finder CSV. Download one from "
-                  "developer.fuel-finder.service.gov.uk/access-latest-fuelprices "
-                  "and either pass --csv <path>, --csv-url <link>, or drop a file in your "
-                  "Downloads folder.")
+            print("No FUEL_FINDER_CLIENT_ID/SECRET set and no CSV found. Either set those two "
+                  "environment variables for full automation, or download a CSV from "
+                  "developer.fuel-finder.service.gov.uk/access-latest-fuelprices and pass "
+                  "--csv <path>, --csv-url <link>, or drop a file in your Downloads folder.")
             return
         csv_file = open(csv_path, encoding="utf-8-sig")
         source_label = os.path.basename(csv_path)
+        stations, skipped_closed = load_stations(csv_file)
 
-    stations, skipped_closed = load_stations(csv_file)
     print(f"Loaded {len(stations)} station(s) from {source_label} "
           f"({skipped_closed} permanently closed station(s) excluded).")
 
