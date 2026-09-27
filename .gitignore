@@ -1,0 +1,10 @@
+# The generated map bakes the MapTiler key into its JS source (that's how
+# tile loading works client-side) - never commit it.
+fuel_map.html
+
+# Fuel Finder CSV exports, if any end up in the project folder rather than
+# Downloads - large, regenerated data, not source.
+UpdatedFuelPrice-*.csv
+
+__pycache__/
+*.pyc
