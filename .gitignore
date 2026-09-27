@@ -1,6 +1,8 @@
-# The generated map bakes the MapTiler key into its JS source (that's how
-# tile loading works client-side) - never commit it.
-fuel_map.html
+# fuel_map.html IS committed deliberately - it's the published site, same
+# as Player Stats Hub's dashboard.html. It bakes the MapTiler key into its
+# JS source (unavoidable for any client-side map), so the key is
+# domain-restricted to andymac76.github.io in the MapTiler account
+# instead of being kept out of git.
 
 # Fuel Finder CSV exports, if any end up in the project folder rather than
 # Downloads - large, regenerated data, not source.
