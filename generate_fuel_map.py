@@ -244,6 +244,25 @@ def generate_html(stations, source_file, maptiler_key):
         padding: 12px;
     }}
     #sidebar h2 {{ font-size: 13px; color: var(--text-dim); margin: 4px 0 10px 0; text-transform: uppercase; letter-spacing: 0.03em; }}
+
+    /* Below tablet-portrait width: a fixed 300px sidebar beside the map
+       would crush the map to almost nothing on a phone. Stack them
+       instead - map gets a fixed height so it's still genuinely usable,
+       sidebar goes full-width below it (arguably the more useful half
+       on mobile anyway - "where's cheap fuel near me" is a list
+       question more than a map-browsing one). */
+    @media (max-width: 700px) {{
+        header {{ padding: 10px 12px; gap: 8px; }}
+        header h1 {{ font-size: 16px; }}
+        .controls {{ margin-left: 0; width: 100%; gap: 8px; }}
+        .controls > div {{ flex: 1 1 calc(50% - 8px); min-width: 110px; }}
+        select {{ max-width: none; width: 100%; }}
+        button {{ width: 100%; }}
+        .main {{ flex-direction: column; }}
+        #map {{ flex: none; height: 50vh; min-height: 260px; }}
+        #sidebar {{ width: 100%; min-width: 0; border-left: none; border-top: 1px solid var(--border); flex: 1; }}
+        select, button {{ padding: 10px 12px; font-size: 14px; }}
+    }}
     .cheap-row {{
         display: flex;
         justify-content: space-between;
