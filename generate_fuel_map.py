@@ -219,7 +219,7 @@ def generate_html(stations, source_file, maptiler_key):
         gap: 14px;
     }}
     header h1 {{ font-size: 18px; margin: 0; white-space: nowrap; }}
-    .meta {{ font-size: 11px; color: var(--muted); white-space: nowrap; }}
+    .meta {{ font-size: 12px; color: var(--text-dim); white-space: nowrap; }}
     .controls {{ display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; align-items: center; }}
     .controls label {{ font-size: 11px; color: var(--text-dim); display: block; margin-bottom: 2px; }}
     select, button {{
@@ -254,6 +254,7 @@ def generate_html(stations, source_file, maptiler_key):
     @media (max-width: 700px) {{
         header {{ padding: 10px 12px; gap: 8px; }}
         header h1 {{ font-size: 16px; }}
+        .meta {{ white-space: normal; }}
         .controls {{ margin-left: 0; width: 100%; gap: 8px; }}
         .controls > div {{ flex: 1 1 calc(50% - 8px); min-width: 110px; }}
         select {{ max-width: none; width: 100%; }}
@@ -289,7 +290,7 @@ def generate_html(stations, source_file, maptiler_key):
 <body>
     <header>
         <h1>&#9981; UK Fuel Price Map</h1>
-        <span class="meta">{len(stations)} stations - generated {generated_at} from {source_file}</span>
+        <span class="meta">Last updated: {generated_at} &middot; {len(stations)} stations &middot; {source_file}</span>
         <div class="controls">
             <div>
                 <label for="fuelSelect">Fuel type</label>
